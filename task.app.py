@@ -27,30 +27,17 @@ task_cols = [c for c in df.columns if "Pre-Training" in c]
 # UI
 st.title("📋 Property Task Board")
 
-# Select property
-properties = df[property_col].dropna().unique()
+# Normalize property names (strip spaces, unify casing)
+df[property_col] = df[property_col].astype(str).str.strip()
+
+# Select property safely
+properties = df[property_col].dropna().unique().tolist()
 selected_property = st.selectbox("🏠 Select a Property", properties)
 
-# Filter property
-row = df[df[property_col] == selected_property].iloc[0]
+# Filter safely (avoid IndexError)
+filtered = df[df[property_col] == selected_property]
+if filtered.empty:
+    st.error("⚠️ No data found for this property. Check the CSV formatting.")
+    st.stop()
 
-# Show details
-st.subheader("📌 Property Details")
-st.write({
-    "Transition Date": row.get(transition_col, "N/A"),
-    "LIVE Date": row.get(live_col, "N/A")
-})
-
-# Show completed tasks
-st.subheader("✅ Completed Tasks")
-for col in task_cols:
-    task = str(row.get(col, "")).strip()
-    if task:
-        st.checkbox(task, value=True, key=f"done_{task}")
-
-# Show pending tasks
-st.subheader("⏳ Pending Tasks")
-pending = str(row.get(pending_col, "")).split(",")
-for task in pending:
-    if task.strip():
-        st.checkbox(task.strip(), value=False, key=f"pending_{task}")
+row = filtered.iloc[0]
