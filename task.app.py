@@ -5,9 +5,9 @@ import os
 # Path to dataset
 data_path = os.path.join("data", "tasks.csv")
 
-# Load CSV (auto-detect delimiter)
+# Load CSV
 if os.path.exists(data_path):
-    df = pd.read_csv(data_path, sep=None, engine="python")
+    df = pd.read_csv(data_path)
 else:
     st.error(f"❌ Could not find dataset at {data_path}")
     st.stop()
@@ -15,55 +15,42 @@ else:
 # Clean column names
 df.columns = [c.strip() for c in df.columns]
 
-# Ensure we have a property column
-property_col = None
-for col in df.columns:
-    if "property" in col.lower():
-        property_col = col
-        break
+# Identify key columns
+property_col = "Property Name"
+transition_col = "Transition Date"
+live_col = "LIVE Date"
+pending_col = "Pending Tasks"
 
-if property_col is None:
-    st.error("❌ No 'Property Name' column found in CSV")
-    st.stop()
-
-# Drop empty rows
-df = df.dropna(subset=[property_col])
+# Task columns = anything with "Pre-Training"
+task_cols = [c for c in df.columns if "Pre-Training" in c]
 
 # UI
 st.title("📋 Property Task Board")
 
-# Select a property
-properties = sorted(df[property_col].dropna().astype(str).str.strip().unique())
+# Select property
+properties = df[property_col].dropna().unique()
 selected_property = st.selectbox("🏠 Select a Property", properties)
 
-# Filter data for selected property
-property_data = df[df[property_col].astype(str).str.strip() == selected_property]
-
-if property_data.empty:
-    st.warning("⚠️ No data found for this property.")
-    st.stop()
-
-row = property_data.iloc[0]
+# Filter property
+row = df[df[property_col] == selected_property].iloc[0]
 
 # Show details
 st.subheader("📌 Property Details")
 st.write({
-    "Transition Date": row.get("Transition Date", "N/A"),
-    "Live Date": row.get("Live Date", "N/A")
+    "Transition Date": row.get(transition_col, "N/A"),
+    "LIVE Date": row.get(live_col, "N/A")
 })
 
-# Show tasks
-st.subheader("✅ Task Status")
+# Show completed tasks
+st.subheader("✅ Completed Tasks")
+for col in task_cols:
+    task = str(row.get(col, "")).strip()
+    if task:
+        st.checkbox(task, value=True, key=f"done_{task}")
 
-done_tasks = str(row.get("Tasks", "")).split(",")
-pending_tasks = str(row.get("Pending Tasks", "")).split(",")
-
-if done_tasks and done_tasks[0].strip():
-    st.markdown("### ✅ Completed")
-    for task in done_tasks:
-        st.checkbox(task.strip(), value=True, key=f"done_{task}")
-
-if pending_tasks and pending_tasks[0].strip():
-    st.markdown("### ⏳ Pending")
-    for task in pending_tasks:
+# Show pending tasks
+st.subheader("⏳ Pending Tasks")
+pending = str(row.get(pending_col, "")).split(",")
+for task in pending:
+    if task.strip():
         st.checkbox(task.strip(), value=False, key=f"pending_{task}")
